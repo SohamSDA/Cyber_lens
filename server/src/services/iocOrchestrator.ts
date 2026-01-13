@@ -7,6 +7,8 @@ import type {
   IocType,
   ThreatIntelProvider,
 } from "../constants/provider.interface";
+import type { OwnerContext } from "../constants/owner";
+import { logIocHistory } from "./iocHistoryService";
 
 export interface OrchestratedResponse<TResponse = unknown> {
   ioc: string;
@@ -37,6 +39,7 @@ export async function orchestrateThreatIntelligence<
 >(
   ioc: string,
   providers: ReadonlyArray<ThreatIntelProvider<TResponse, TOptions>>,
+  owner: OwnerContext,
   options: OrchestratorOptions<TOptions> = {}
 ): Promise<OrchestratedResponse<TResponse>> {
   const startTime = Date.now();
@@ -48,7 +51,7 @@ export async function orchestrateThreatIntelligence<
     validation = validateIocType(ioc, options.userSelectedType);
   }
 
-  // -------------------Handle case where IOC type cannot be detected--------------------------
+  
   if (!detected.type) {
     return {
       ioc,
@@ -77,6 +80,15 @@ export async function orchestrateThreatIntelligence<
   );
 
   const executionTimeMs = Date.now() - startTime;
+
+  void logIocHistory({
+    owner,
+    iocType: detected.type,
+    iocValue: ioc,
+  }).catch((error) => {
+    // History logging is best-effort; failures should not block the response.
+    console.warn("Failed to log IOC history", { error });
+  });
 
   return {
     ioc,

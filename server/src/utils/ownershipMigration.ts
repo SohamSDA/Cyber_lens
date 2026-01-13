@@ -8,7 +8,13 @@ interface OwnershipMigrationTask {
 }
 
 // Add table mappings here as new features store owner references.
-const MIGRATION_TASKS: OwnershipMigrationTask[] = [];
+const MIGRATION_TASKS: OwnershipMigrationTask[] = [
+  {
+    table: "ioc_history",
+    ownerTypeColumn: "owner_type",
+    ownerIdColumn: "owner_id",
+  },
+];
 
 export async function migrateAnonymousOwnerToUser(
   anonymousId: string,
