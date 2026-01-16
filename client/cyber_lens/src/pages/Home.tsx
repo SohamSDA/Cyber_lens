@@ -1,11 +1,52 @@
 import React, { useState } from "react";
+import { httpJson } from "../utils/httpClient";
+
+interface LookupResponse {
+  ioc: string;
+  type: string;
+  score: number;
+  verdict: string;
+  providers: unknown[];
+  meta: unknown;
+}
 
 const Home: React.FC = () => {
   const [iocValue, setIocValue] = useState("");
   const [iocType, setIocType] = useState("IP");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<LookupResponse | null>(null);
 
-  const handleSearch = () => {
-    console.log(`Searching for ${iocType}: ${iocValue}`);
+  const handleSearch = async () => {
+    if (!iocValue.trim()) {
+      setError("Please enter a valid IOC");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const response = await httpJson<LookupResponse>("/lookup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ioc: iocValue.trim(),
+          type: iocType,
+        }),
+      });
+
+      setResult(response);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "An error occurred during lookup"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -50,11 +91,75 @@ const Home: React.FC = () => {
 
               <button
                 onClick={handleSearch}
-                className="sm:col-span-1 px-4 py-3 bg-cyan-500 text-neutral-950 font-semibold hover:bg-cyan-400 transition-colors"
+                disabled={loading}
+                className="sm:col-span-1 px-4 py-3 bg-cyan-500 text-neutral-950 font-semibold hover:bg-cyan-400 transition-colors disabled:bg-neutral-700 disabled:cursor-not-allowed"
               >
-                Analyze
+                {loading ? "Analyzing..." : "Analyze"}
               </button>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mt-4 p-4 bg-red-900/20 border border-red-800 text-red-400 text-sm">
+                <strong>Error:</strong> {error}
+              </div>
+            )}
+
+            {/* Results Display */}
+            {result && (
+              <div className="mt-4 p-6 bg-neutral-950 border border-neutral-800 text-left">
+                <h3 className="text-xl font-semibold mb-4 text-cyan-400">
+                  Analysis Results
+                </h3>
+
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-neutral-500">IOC:</div>
+                    <div className="font-mono text-neutral-200 break-all">
+                      {result.ioc}
+                    </div>
+
+                    <div className="text-neutral-500">Detected Type:</div>
+                    <div className="font-semibold text-cyan-400">
+                      {result.type}
+                    </div>
+
+                    <div className="text-neutral-500">Threat Score:</div>
+                    <div className="font-bold text-lg">
+                      <span
+                        className={
+                          result.score >= 70
+                            ? "text-red-500"
+                            : result.score >= 40
+                            ? "text-yellow-500"
+                            : "text-green-500"
+                        }
+                      >
+                        {result.score}
+                      </span>
+                      <span className="text-neutral-500 text-sm ml-1">
+                        / 100
+                      </span>
+                    </div>
+
+                    <div className="text-neutral-500">Verdict:</div>
+                    <div className="font-semibold">
+                      <span
+                        className={
+                          result.verdict === "malicious"
+                            ? "text-red-500"
+                            : result.verdict === "suspicious"
+                            ? "text-yellow-500"
+                            : "text-green-500"
+                        }
+                      >
+                        {result.verdict.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
