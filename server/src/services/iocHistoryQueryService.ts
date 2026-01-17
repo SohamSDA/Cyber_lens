@@ -17,6 +17,7 @@ export async function queryHistory({
     `
     SELECT
       ioc_value,
+      ioc_type,
       verdict,
       created_at as timestamp,
       score

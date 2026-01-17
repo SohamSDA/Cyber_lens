@@ -9,6 +9,7 @@ import type {
 } from "../constants/provider.interface";
 import type { OwnerContext } from "../constants/owner";
 import { logIocHistory } from "./iocHistoryService";
+import { computeScore } from "./scoringEngine";
 
 export interface OrchestratedResponse<TResponse = unknown> {
   ioc: string;
@@ -44,16 +45,13 @@ export async function orchestrateThreatIntelligence<
 ): Promise<OrchestratedResponse<TResponse>> {
   const startTime = Date.now();
 
-  // Detect IOC type
   const detected = detectIocType(ioc);
 
-  // Validate user-selected type (if provided)
   let validation = { isValid: true };
   if (options.userSelectedType) {
     validation = validateIocType(ioc, options.userSelectedType);
   }
 
-  // If detection fails, return early (NO history write)
   if (!detected.type) {
     return {
       ioc,
@@ -71,7 +69,6 @@ export async function orchestrateThreatIntelligence<
     };
   }
 
-  // Execute providers (core lookup behavior)
   const providerResults = await executeProviders(
     providers,
     ioc,
@@ -84,16 +81,19 @@ export async function orchestrateThreatIntelligence<
 
   const executionTimeMs = Date.now() - startTime;
 
-  // Fire-and-forget history logging (NON-BLOCKING)
+  const scoringResult = computeScore({
+    providers: providerResults,
+  });
+
   void logIocHistory({
     owner,
     iocType: detected.type,
     iocValue: ioc,
+    verdict: scoringResult.verdict,
+    score: scoringResult.finalScore ?? 0,
   }).catch(() => {
-    // intentionally ignored
   });
 
-  // Return lookup response normally
   return {
     ioc,
     detectedType: detected.type,
